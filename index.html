@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEFIRST Truck Packer 5000</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #0ea5e9;
+    --success: #22c55e;
+    --warn: #eab308;
+    --danger: #ef4444;
+    --trailer-bg: #1a2332;
+    --trailer-line: #334155;
+    --trailer-line-strong: #64748b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+  }
+  header {
+    display: flex; align-items: center;
+    padding: 8px 14px; gap: 10px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 16px; margin: 0; font-weight: 600; letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h1 .brand-logo {
+    height: 28px; width: auto;
+    background: #fff; padding: 3px 6px; border-radius: 4px;
+    display: block;
+  }
+  h1 .brand-logo.missing {
+    font-size: 11px; color: #b91c1c; background: transparent; padding: 0;
+    font-weight: 700;
+  }
+  .spacer { flex: 1; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .tabs button.active { background: var(--accent-2); border-color: var(--accent); color: #0f172a; font-weight: 600; }
+  .tabs button:hover:not(.active) { background: #475569; }
+  .btn {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .btn:hover { background: #475569; }
+  .btn.primary { background: var(--accent-2); border-color: var(--accent); color: #0f172a; font-weight: 600; }
+  .btn.primary:hover { background: var(--accent); }
+  .btn.danger { background: #7f1d1d; border-color: #b91c1c; }
+  .btn.danger:hover { background: #991b1b; }
+  .btn.warn { background: #78350f; border-color: #b45309; }
+  .btn.warn:hover { background: #92400e; }
+  .btn.success { background: #166534; border-color: #22c55e; color: #f0fdf4; font-weight: 600; }
+  .btn.success:hover { background: #15803d; }
+
+  main {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 49px);
+  }
+  aside {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 10px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  aside h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); margin: 4px 0 2px 0;
+  }
+  aside .pool-stats {
+    font-size: 12px; color: var(--muted);
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .pool-box {
+    display: flex; align-items: center;
+    padding: 6px 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 12px; cursor: grab;
+    line-height: 1.2;
+  }
+  .pool-box:active { cursor: grabbing; }
+  .pool-box .swatch {
+    width: 12px; height: 12px; border-radius: 2px; margin-right: 8px; flex-shrink: 0;
+  }
+  .pool-box .label { flex: 1; }
+  .pool-box .size { color: var(--muted); font-size: 11px; margin-left: 4px; }
+  .pool-box.dragging { opacity: 0.4; }
+
+  .stage {
+    position: relative; overflow: auto;
+    background: #0b1220;
+  }
+  .stage-inner {
+    position: relative;
+    padding: 40px 30px 30px 50px;
+    min-width: min-content;
+  }
+  .trailer {
+    position: relative;
+  }
+  .trailer-rect {
+    position: absolute; left: 0; top: 0;
+    background: var(--trailer-bg);
+    border: 2px solid var(--trailer-line-strong);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .staging-rect {
+    position: absolute; left: 0;
+    background: rgba(51, 65, 85, 0.18);
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .staging-label {
+    position: absolute; font-size: 10px;
+    letter-spacing: 2px; color: var(--muted);
+    font-weight: 600; pointer-events: none;
+    background: rgba(15,23,42,0.85); padding: 3px 10px;
+    border-radius: 3px;
+  }
+  .grid-line-v, .grid-line-h {
+    position: absolute; background: var(--trailer-line);
+    pointer-events: none;
+  }
+  .grid-line-v { width: 1px; top: 0; bottom: 0; }
+  .grid-line-h { height: 1px; left: 0; right: 0; }
+  .grid-line-v.major, .grid-line-h.major { background: var(--trailer-line-strong); }
+
+  .ruler-x, .ruler-y {
+    position: absolute;
+    color: var(--muted);
+    font-size: 10px;
+    pointer-events: none;
+  }
+  .ruler-x { top: -22px; transform: translateX(-50%); }
+  .ruler-y { left: -30px; transform: translateY(-50%); }
+
+  .end-label {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    letter-spacing: 1.5px; writing-mode: vertical-rl; text-orientation: mixed;
+    pointer-events: none;
+  }
+  .end-label.left { left: -6px; transform: translateY(-50%) rotate(180deg); }
+  .end-label.right { right: -6px; }
+
+  .empty-hint {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--muted); font-size: 14px; text-align: center;
+    pointer-events: none; line-height: 1.6;
+    padding: 20px 30px;
+    background: rgba(30,41,59,0.7); border-radius: 8px;
+    border: 1px dashed var(--border);
+  }
+  .empty-hint strong { color: var(--text); }
+
+  .box {
+    position: absolute;
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 11px;
+    line-height: 1.1;
+    cursor: grab;
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    transition: box-shadow 0.1s, transform 0.05s;
+    color: #0b1220;
+    font-weight: 500;
+    text-shadow: 0 0 2px rgba(255,255,255,0.3);
+    border: 1.5px solid rgba(0,0,0,0.4);
+  }
+  .box:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.6); z-index: 50; }
+  .box.dragging { opacity: 0.7; z-index: 100; cursor: grabbing; }
+  .box.overlap { border-color: #fca5a5; box-shadow: 0 0 0 2px var(--danger); }
+  .box.locked::after {
+    content: "🔒"; position: absolute; top: 1px; right: 1px; font-size: 9px; text-shadow: none;
+  }
+  .box .team { font-size: 11px; font-weight: 700; }
+  .box .desc { font-size: 10px; opacity: 0.85; font-weight: 500; }
+  .box .dims { font-size: 9px; opacity: 0.7; }
+
+  .stats {
+    display: flex; flex-wrap: wrap; gap: 22px;
+    margin: 14px 0 16px 0;
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 12px;
+  }
+  .stats .stat { display: flex; flex-direction: column; gap: 2px; min-width: 90px; }
+  .stats .stat .k { color: var(--muted); font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .stats .stat .v { font-weight: 700; font-size: 15px; }
+  .stats .stat.danger .v { color: var(--danger); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px; min-width: 420px; max-width: 560px;
+  }
+  .modal h2 { margin: 0 0 10px 0; font-size: 16px; }
+  .modal label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  .modal input[type="text"] {
+    width: 100%; padding: 8px; font-size: 13px;
+    background: #0f172a; color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .modal .actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  .modal p.hint { font-size: 12px; color: var(--muted); margin: 8px 0; }
+
+  .diff-section {
+    margin: 6px 0; padding: 8px 12px;
+    border-radius: 4px; font-size: 12px;
+    border-left: 3px solid transparent;
+  }
+  .diff-section.added   { background: #052e16; border-left-color: #22c55e; }
+  .diff-section.removed { background: #450a0a; border-left-color: #ef4444; }
+  .diff-section.changed { background: #422006; border-left-color: #eab308; }
+  .diff-section strong { color: var(--text); font-size: 12px; }
+  .diff-section ul { margin: 4px 0 0 0; padding-left: 18px; line-height: 1.55; color: var(--muted); }
+  .diff-section li strong.team { color: var(--text); }
+  .diff-h3 { font-size: 14px; margin: 14px 0 4px 0; color: var(--accent); }
+  .diff-modal-body { max-height: 50vh; overflow-y: auto; padding-right: 6px; margin: 8px 0; }
+
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 10px 14px; border-radius: 6px; font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    z-index: 2000; max-width: 560px; line-height: 1.4;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { border-color: var(--danger); background: #450a0a; }
+  .toast.success { border-color: var(--success); background: #052e16; }
+
+  .ctx-menu {
+    position: fixed; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 4px 0; min-width: 140px; z-index: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: none;
+  }
+  .ctx-menu.open { display: block; }
+  .ctx-menu button {
+    display: block; width: 100%;
+    background: none; border: none; color: var(--text);
+    padding: 6px 12px; text-align: left; font-size: 13px; cursor: pointer;
+  }
+  .ctx-menu button:hover { background: var(--panel-2); }
+
+  .help {
+    font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.4;
+  }
+  .help strong { color: var(--text); }
+
+  .drop-zone {
+    outline: 2px dashed var(--accent);
+    outline-offset: -8px;
+  }
+
+  input[type="file"] { display: none; }
+  .file-label { cursor: pointer; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 220px 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>
+    <img class="brand-logo" src="logo.png" alt="NE FIRST"
+         onerror="this.outerHTML='<span class=&quot;brand-logo missing&quot;>(upload logo.png)</span>'">
+    🚛 NEFIRST Truck Packer 5000
+  </h1>
+  <div class="tabs" id="tabs"></div>
+  <div class="spacer"></div>
+  <button class="btn primary" id="btn-load-url">📡 Load from URL</button>
+  <label class="btn file-label" for="file-input">📄 Upload CSV</label>
+  <input type="file" id="file-input" accept=".csv,.tsv,.txt">
+  <button class="btn" id="btn-check-updates">🔄 Check for Updates</button>
+  <button class="btn success" id="btn-commit">💾 Commit Layout</button>
+  <button class="btn" id="btn-auto-finish">✨ Finish Auto-Pack</button>
+  <button class="btn warn" id="btn-auto-all">🤖 Auto-Pack All</button>
+  <button class="btn" id="btn-settings">⚙︎</button>
+  <button class="btn danger" id="btn-reset">⟲ Unpack All</button>
+</header>
+
+<main>
+  <aside>
+    <h2>Unplaced Items</h2>
+    <div class="pool-stats" id="pool-stats">No items loaded</div>
+    <div id="pool"></div>
+    <div class="help">
+      <strong>Controls:</strong><br>
+      Drag boxes into the <strong>truck</strong> to pack them.<br>
+      Drag into the <strong>staging area</strong> below to preview sizing without committing.<br>
+      Right-click a placed box to rotate or remove.<br>
+      Press <strong>R</strong> while hovering a box to rotate.<br>
+      Drag a box to this sidebar to return it to the pool.
+    </div>
+  </aside>
+  <section class="stage" id="stage">
+    <div class="stage-inner" id="stage-inner">
+      <div class="trailer" id="trailer"></div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="load-url-modal">
+  <div class="modal">
+    <h2>Load from Google Sheet URL</h2>
+    <p class="hint">
+      In Google Sheets: <strong>File → Share → Publish to web</strong>, choose
+      <strong>Comma-separated values (.csv)</strong>, publish, and paste the URL below.
+      The app stores this URL so <strong>Check for Updates</strong> can re-fetch it later.
+    </p>
+    <label for="url-input">Published CSV URL</label>
+    <input type="text" id="url-input" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+    <p class="hint" style="background:#422006;border:1px solid #b45309;padding:8px;border-radius:4px;">
+      If fetch fails (CORS / non-published URL), use <strong>Upload CSV</strong> instead.
+    </p>
+    <div class="actions">
+      <button class="btn" id="btn-load-url-cancel">Cancel</button>
+      <button class="btn primary" id="btn-load-url-go">Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="update-modal">
+  <div class="modal" style="min-width:560px;max-width:720px;">
+    <h2>Sheet Changes</h2>
+    <p class="hint">
+      Review the changes from the sheet. Items whose dimensions changed will return to the pool
+      (so you can re-place them). Items whose positions you've already set will be preserved when
+      only the description or other metadata changed.
+    </p>
+    <div class="diff-modal-body" id="update-modal-body"></div>
+    <div class="actions">
+      <button class="btn" id="btn-update-cancel">Cancel</button>
+      <button class="btn primary" id="btn-update-apply">Apply Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <h2>Trailer Dimensions</h2>
+    <p class="hint">Adjust the interior dimensions of the trailer. Changes apply to both locations.</p>
+    <label>Interior length (inches)</label>
+    <input type="text" id="setting-len" value="630">
+    <label>Interior width (inches)</label>
+    <input type="text" id="setting-wid" value="100">
+    <div class="actions">
+      <button class="btn" id="btn-settings-cancel">Cancel</button>
+      <button class="btn primary" id="btn-settings-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="ctx-menu" id="ctx-menu"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================================
+// CONFIGURATION
+// =====================================================================
+let TRAILER_LENGTH_IN = 630;     // interior length (mutable via settings)
+let TRAILER_WIDTH_IN  = 100;     // interior width  (mutable via settings)
+const GRID_IN = 6;               // snap/round to 6" (half-foot)
+const STAGING_GAP_IN = 36;       // visual gap between trailer and staging
+const STAGING_HEIGHT_IN = 120;   // staging area height (inches, same scale)
+
+// Scale is computed dynamically based on viewport
+let pxPerInch = 2;
+
+// =====================================================================
+// STATE
+// =====================================================================
+/**
+ * state = {
+ *   activeLocation: string,
+ *   locationNames: [string, string],
+ *   csvUrl: string | null,
+ *   locations: {
+ *     [name]: {
+ *       items: [
+ *         { id, team, itemNum, desc,
+ *           wRaw, dRaw,         // original inches from sheet
+ *           w, d,               // rounded up to GRID_IN
+ *           x, y,               // position in inches; null = unplaced
+ *           rotated,            // true = render d along length axis
+ *           locked,             // true = don't touch during auto-pack (user manually placed)
+ *           color               // HSL string
+ *         }
+ *       ]
+ *     }
+ *   }
+ * }
+ */
+let state = {
+  activeLocation: "NEF Exeter",
+  locationNames: ["NEF Exeter", "WPI Sagamore"],
+  csvUrl: null,
+  syncUrl: null, // Google Apps Script web-app URL for read/write layout persistence
+  trailer: { length: 630, width: 100 },
+  locations: {
+    "NEF Exeter": { items: [] },
+    "WPI Sagamore": { items: [] }
+  }
+};
+
+// Transient dragging state
+let drag = null; // { item, ghost, offsetX, offsetY, fromPool }
+let hoveredBoxId = null;
+
+// =====================================================================
+// UTILITIES
+// =====================================================================
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function roundUpToGrid(n) {
+  if (!isFinite(n) || n <= 0) return 0;
+  return Math.ceil(n / GRID_IN) * GRID_IN;
+}
+function inchesToPx(n) { return n * pxPerInch; }
+
+function colorForTeam(team) {
+  // Stable hue from team number
+  let s = String(team || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
+  const hue = h % 360;
+  return `hsl(${hue}, 70%, 65%)`;
+}
+
+function toast(msg, kind = "") {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show " + kind;
+  clearTimeout(toast._to);
+  const ms = kind === "error" ? 7000 : 2200;
+  toast._to = setTimeout(() => { t.className = "toast " + kind; }, ms);
+}
+
+function label(item) {
+  const dispW = item.rotated ? item.d : item.w;
+  const dispD = item.rotated ? item.w : item.d;
+  return `${item.team} — Item ${item.itemNum} — ${dispW}" × ${dispD}"`;
+}
+
+/** Escape untrusted CSV text before interpolating into innerHTML. */
+function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// =====================================================================
+// CSV PARSING
+// =====================================================================
+/** Minimal CSV parser handling quoted fields and commas. */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+      else if (c === '\r') { /* skip */ }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => c && c.trim()));
+}
+
+/**
+ * Parse rows into items. The sheet has two header rows:
+ *   Row 0 (category): "Info Doc" | "Robot" | "Item 1" | "Item 2" | ...
+ *   Row 1 (subhead):  "Team Number" | ... | "Desc" | "W (in)" | "D (in)" | ...
+ * Cells in row 0 are often merged, so cells except the first of each group
+ * are blank. We forward-fill row 0 to produce combined "Category/SubHeader" column names.
+ */
+function parseSheetToItems(rows) {
+  if (rows.length < 2) throw new Error("Sheet has too few rows.");
+
+  // Forward-fill row 0
+  const r0 = rows[0].slice();
+  for (let i = 1; i < r0.length; i++) {
+    if (!r0[i] || !r0[i].trim()) r0[i] = r0[i - 1];
+  }
+  const r1 = rows[1];
+  const maxLen = Math.max(r0.length, r1.length);
+  const headers = [];
+  for (let i = 0; i < maxLen; i++) {
+    const a = (r0[i] || "").trim();
+    const b = (r1[i] || "").trim();
+    headers.push(a && b ? `${a}/${b}` : (a || b || `col${i}`));
+  }
+
+  // Column finders — tolerant: match by contains
+  function col(predicate) {
+    for (let i = 0; i < headers.length; i++) if (predicate(headers[i])) return i;
+    return -1;
+  }
+  const teamCol = col(h => /team.*number/i.test(h)) !== -1
+    ? col(h => /team.*number/i.test(h))
+    : col(h => /\bteam\b/i.test(h));
+  const onTruckCol = col(h => /on\s*truck/i.test(h));
+  const locCol = col(h => /preferred\s*location/i.test(h));
+
+  // Find up to 5 item columns
+  const itemBlocks = [];
+  for (let n = 1; n <= 5; n++) {
+    const descI = col(h => new RegExp(`item\\s*${n}\\b.*desc`, "i").test(h));
+    const wI    = col(h => new RegExp(`item\\s*${n}\\b.*\\bw\\b`, "i").test(h));
+    const dI    = col(h => new RegExp(`item\\s*${n}\\b.*\\bd\\b`, "i").test(h));
+    if (descI === -1 && wI === -1 && dI === -1) continue;
+    itemBlocks.push({ n, descI, wI, dI });
+  }
+  if (itemBlocks.length === 0) throw new Error("Couldn't find any Item columns.");
+
+  if (teamCol === -1)    throw new Error("Couldn't find Team Number column.");
+  if (locCol === -1)     throw new Error("Couldn't find Preferred Location column.");
+
+  const items = [];
+  const locationSet = new Set();
+
+  for (let r = 2; r < rows.length; r++) {
+    const row = rows[r];
+    const team = (row[teamCol] || "").trim();
+    if (!team) continue;
+    // Skip non-numeric stats rows from elsewhere in the sheet
+    if (!/^\d+$/.test(team)) continue;
+
+    const onTruck = onTruckCol === -1 ? "" : (row[onTruckCol] || "").trim().toLowerCase();
+    if (onTruckCol !== -1 && onTruck !== "yes") continue;
+
+    const loc = (row[locCol] || "").trim();
+    if (!loc) continue;
+    locationSet.add(loc);
+
+    for (const blk of itemBlocks) {
+      const desc = blk.descI === -1 ? "" : (row[blk.descI] || "").trim();
+      const wS   = blk.wI    === -1 ? "" : (row[blk.wI]    || "").trim();
+      const dS   = blk.dI    === -1 ? "" : (row[blk.dI]    || "").trim();
+      if (!desc && !wS && !dS) continue;
+      const wRaw = parseFloat(wS);
+      const dRaw = parseFloat(dS);
+      if (!isFinite(wRaw) || wRaw <= 0 || !isFinite(dRaw) || dRaw <= 0) continue;
+
+      items.push({
+        id: `${team}-${blk.n}`,
+        team,
+        itemNum: blk.n,
+        desc: desc || `(unnamed)`,
+        wRaw, dRaw,
+        // Round up to the nearest whole inch (no-op for integer values).
+        w: Math.ceil(wRaw),
+        d: Math.ceil(dRaw),
+        x: null, y: null,
+        rotated: false,
+        locked: false,
+        color: colorForTeam(team),
+        location: loc
+      });
+    }
+  }
+  return { items, locations: Array.from(locationSet) };
+}
+
+// =====================================================================
+// LOADING CSV
+// =====================================================================
+/** Build a list of URLs to try for a given input. */
+function candidateUrls(url) {
+  const tries = [url];
+  // If user pasted an /edit URL, try the gviz CSV export endpoint as a fallback.
+  // This works for sheets set to "Anyone with the link can view" and supports CORS.
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (m) {
+    const id = m[1];
+    // Extract gid (tab) if present in URL
+    const gidMatch = url.match(/[#&?]gid=(\d+)/);
+    const gid = gidMatch ? gidMatch[1] : null;
+    const gidQs = gid ? `&gid=${gid}` : "";
+    tries.push(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gidQs}`);
+    tries.push(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid ? "&gid=" + gid : ""}`);
+  }
+  return Array.from(new Set(tries));
+}
+
+function urlLooksLikePublished(url) {
+  return /\/spreadsheets\/d\/e\//.test(url) || /[\?&]output=csv\b/.test(url);
+}
+function urlLooksLikeEdit(url) {
+  return /\/spreadsheets\/d\/[^/]+\/edit/.test(url);
+}
+
+/** Try fetching CSV text from a URL and its CORS-friendly alternates. Throws on failure. */
+async function fetchCsvText(url) {
+  const urls = candidateUrls(url);
+  const errors = [];
+  for (const u of urls) {
+    try {
+      const res = await fetch(u, { redirect: "follow" });
+      if (!res.ok) { errors.push(`${new URL(u).pathname}: HTTP ${res.status}`); continue; }
+      const text = await res.text();
+      if (/^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
+        errors.push(`${new URL(u).pathname}: returned HTML (sheet may not be public)`);
+        continue;
+      }
+      return text;
+    } catch (e) {
+      errors.push(e.message);
+    }
+  }
+  const err = new Error(errors.join("; "));
+  err.isFetch = true;
+  throw err;
+}
+
+async function loadFromUrl(url) {
+  try {
+    const text = await fetchCsvText(url);
+    applyCsvText(text);
+    state.csvUrl = url;
+    saveLocal();
+    toast("Loaded from URL", "success");
+  } catch (e) {
+    console.error("Fetch failed for all candidates:", e);
+    const isFileOrigin = location.protocol === "file:";
+    let advice;
+    if (isFileOrigin && urlLooksLikePublished(url)) {
+      advice = "Browser blocked cross-origin fetch from a file:// page. Either (1) paste the CSV " +
+               "into the box below, (2) use Upload CSV, or (3) host the file (GitHub Pages, etc.).";
+    } else if (urlLooksLikeEdit(url)) {
+      advice = "That's an /edit share URL — browsers can't fetch those. In Google Sheets do " +
+               "File → Share → Publish to web → CSV and paste THAT URL, or use Upload CSV.";
+    } else if (!urlLooksLikePublished(url)) {
+      advice = "URL doesn't look like a published CSV. Try File → Share → Publish to web → CSV " +
+               "in Google Sheets, or use Upload CSV.";
+    } else {
+      advice = "Make sure the sheet is Published to web. Check DevTools Network tab for details.";
+    }
+    toast("Fetch failed. " + advice, "error");
+  }
+}
+
+// =====================================================================
+// CHECK FOR UPDATES — diff current items against a fresh fetch of the sheet
+// =====================================================================
+
+/** Compare the live state against freshly-parsed items and categorize the changes. */
+function computeItemDiff(currentState, newItems) {
+  const diff = {};
+  const allLocs = new Set([...currentState.locationNames]);
+  for (const it of newItems) allLocs.add(it.location);
+  for (const loc of allLocs) {
+    diff[loc] = { added: [], removed: [], changedDims: [], changedDesc: [] };
+  }
+
+  const currentByKey = {};
+  for (const loc of currentState.locationNames) {
+    for (const it of (currentState.locations[loc]?.items || [])) {
+      currentByKey[`${loc}|${it.id}`] = it;
+    }
+  }
+  const newByKey = {};
+  for (const it of newItems) newByKey[`${it.location}|${it.id}`] = it;
+
+  for (const it of newItems) {
+    const key = `${it.location}|${it.id}`;
+    const current = currentByKey[key];
+    if (!current) {
+      diff[it.location].added.push(it);
+    } else {
+      const dimsChanged = current.w !== it.w || current.d !== it.d;
+      const descChanged = current.desc !== it.desc;
+      if (dimsChanged) diff[it.location].changedDims.push({ old: current, new: it });
+      else if (descChanged) diff[it.location].changedDesc.push({ old: current, new: it });
+    }
+  }
+
+  for (const loc of currentState.locationNames) {
+    for (const it of (currentState.locations[loc]?.items || [])) {
+      if (!newByKey[`${loc}|${it.id}`]) diff[loc].removed.push(it);
+    }
+  }
+  return diff;
+}
+
+function diffHasChanges(diff) {
+  for (const loc of Object.keys(diff)) {
+    const d = diff[loc];
+    if (d.added.length + d.removed.length + d.changedDims.length + d.changedDesc.length) return true;
+  }
+  return false;
+}
+
+async function checkForUpdates() {
+  // If we have a stored CSV URL (from a share link or past session), fetch and diff.
+  // Otherwise, prompt the user to pick an updated CSV file and diff against that.
+  if (state.csvUrl) {
+    toast("Checking for updates…", "");
+    let text;
+    try {
+      text = await fetchCsvText(state.csvUrl);
+    } catch (e) {
+      toast(`Fetch failed — pick an updated CSV file instead. (${e.message})`, "error");
+      updateFileInput.click();
+      return;
+    }
+    runDiffFromText(text);
+    return;
+  }
+  // No URL — use file picker.
+  updateFileInput.click();
+}
+
+function showUpdateModal(diff, newItems) {
+  const body = $("#update-modal-body");
+  let html = "";
+  const locs = Object.keys(diff).sort();
+  for (const loc of locs) {
+    const d = diff[loc];
+    if (!d.added.length && !d.removed.length && !d.changedDims.length && !d.changedDesc.length) continue;
+    html += `<div class="diff-h3">${esc(loc)}</div>`;
+    if (d.added.length) {
+      html += `<div class="diff-section added"><strong>+ ${d.added.length} new item${d.added.length === 1 ? "" : "s"}</strong><ul>`;
+      for (const it of d.added) {
+        html += `<li>${esc(it.team)} · Item ${esc(it.itemNum)} · ${esc(it.desc)} — <em>${it.w}"×${it.d}"</em></li>`;
+      }
+      html += `</ul></div>`;
+    }
+    if (d.removed.length) {
+      html += `<div class="diff-section removed"><strong>− ${d.removed.length} removed</strong><ul>`;
+      for (const it of d.removed) {
+        const where = it.x != null ? " <em>(currently placed — will be removed)</em>" : "";
+        html += `<li>${esc(it.team)} · Item ${esc(it.itemNum)} · ${esc(it.desc)}${where}</li>`;
+      }
+      html += `</ul></div>`;
+    }
+    if (d.changedDims.length) {
+      html += `<div class="diff-section changed"><strong>⟳ ${d.changedDims.length} resized — returned to pool</strong><ul>`;
+      for (const { old, new: n } of d.changedDims) {
+        html += `<li>${esc(n.team)} · Item ${esc(n.itemNum)}: <em>${old.w}"×${old.d}" → ${n.w}"×${n.d}"</em></li>`;
+      }
+      html += `</ul></div>`;
+    }
+    if (d.changedDesc.length) {
+      html += `<div class="diff-section changed"><strong>✎ ${d.changedDesc.length} renamed — position kept</strong><ul>`;
+      for (const { old, new: n } of d.changedDesc) {
+        html += `<li>${esc(n.team)} · Item ${esc(n.itemNum)}: "${esc(old.desc)}" → "${esc(n.desc)}"</li>`;
+      }
+      html += `</ul></div>`;
+    }
+  }
+  body.innerHTML = html;
+  $("#update-modal").classList.add("open");
+  $("#btn-update-apply").onclick = () => {
+    applyItemUpdate(newItems);
+    $("#update-modal").classList.remove("open");
+  };
+}
+
+/** Replace the item list with newItems, preserving positions wherever safe. */
+function applyItemUpdate(newItems) {
+  const currentByKey = {};
+  for (const loc of state.locationNames) {
+    for (const it of (state.locations[loc]?.items || [])) {
+      currentByKey[`${loc}|${it.id}`] = it;
+    }
+  }
+  const allLocs = new Set();
+  for (const it of newItems) allLocs.add(it.location);
+  const locationNames = Array.from(allLocs);
+  const nextLocations = {};
+  for (const loc of locationNames) nextLocations[loc] = { items: [] };
+
+  for (const it of newItems) {
+    const prev = currentByKey[`${it.location}|${it.id}`];
+    if (prev && prev.w === it.w && prev.d === it.d) {
+      // Preserve position for items whose dimensions are unchanged.
+      it.x = prev.x; it.y = prev.y;
+      it.rotated = prev.rotated;
+      it.locked = prev.locked;
+    }
+    nextLocations[it.location].items.push(it);
+  }
+
+  state.locationNames = locationNames;
+  if (!locationNames.includes(state.activeLocation)) {
+    state.activeLocation = locationNames[0];
+  }
+  state.locations = nextLocations;
+  saveLocal();
+  renderAll();
+  toast("Changes applied", "success");
+}
+
+// =====================================================================
+// SHEET-BASED LAYOUT SYNC (Apps Script web app)
+// =====================================================================
+
+/** Fetch the saved layout JSON from the Apps Script endpoint and merge it in. */
+async function loadLayoutFromSync(syncUrl, { silent = false } = {}) {
+  try {
+    const res = await fetch(syncUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || !data.state) {
+      if (!silent) toast("No saved layout yet in that sheet", "");
+      return false;
+    }
+    const saved = JSON.parse(data.state);
+    applyLayoutFromSaved(saved);
+    if (!silent) {
+      const when = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : "saved layout";
+      toast(`Loaded layout (${when})`, "success");
+    }
+    return true;
+  } catch (e) {
+    console.error(e);
+    if (!silent) toast(`Couldn't load layout: ${e.message}`, "error");
+    return false;
+  }
+}
+
+/** Merge a previously-saved compactState into the current items by (location, id). */
+function applyLayoutFromSaved(saved) {
+  if (!saved || !saved.l) return;
+  // Carry over trailer dims if present
+  if (saved.tl) state.trailer.length = saved.tl;
+  if (saved.tw) state.trailer.width = saved.tw;
+  if (saved.n && Array.isArray(saved.n)) state.locationNames = saved.n;
+  const savedIndex = {};
+  for (const name of Object.keys(saved.l || {})) {
+    for (const si of (saved.l[name] || [])) {
+      savedIndex[`${name}|${si.i}`] = si;
+    }
+  }
+  for (const name of state.locationNames) {
+    const bucket = state.locations[name] || (state.locations[name] = { items: [] });
+    for (const it of bucket.items) {
+      const si = savedIndex[`${name}|${it.id}`];
+      if (!si) continue;
+      it.x = si.x; it.y = si.y;
+      it.rotated = !!si.r;
+      it.locked = !!si.L;
+    }
+  }
+}
+
+/** POST the current state to the Apps Script endpoint. */
+async function commitToSync() {
+  if (!state.syncUrl) {
+    toast("No Sync URL set. Click Load Truck → paste the Sync URL first.", "error");
+    return;
+  }
+  if (!confirm("Save current layout (both locations) to the spreadsheet? This overwrites the previously committed layout.")) {
+    return;
+  }
+  try {
+    const body = JSON.stringify(compactState());
+    const res = await fetch(state.syncUrl, {
+      method: "POST",
+      // text/plain avoids a CORS preflight; Apps Script still reads postData.contents.
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Unknown server error");
+    toast(`Committed layout to sheet (${new Date(data.updatedAt).toLocaleTimeString()})`, "success");
+  } catch (e) {
+    console.error(e);
+    toast(`Commit failed: ${e.message}. Check Sync URL and that the Apps Script deployment is set to "Anyone" access.`, "error");
+  }
+}
+
+function applyCsvText(text) {
+  const rows = parseCSV(text);
+  const { items, locations } = parseSheetToItems(rows);
+
+  // Update location tabs if sheet has new names
+  if (locations.length >= 1) {
+    state.locationNames = Array.from(new Set(locations));
+    if (!state.locationNames.includes(state.activeLocation)) {
+      state.activeLocation = state.locationNames[0];
+    }
+    // Reset location buckets
+    for (const name of state.locationNames) {
+      if (!state.locations[name]) state.locations[name] = { items: [] };
+    }
+  }
+
+  // MERGE: for each new item, preserve existing position if the id matches in same location
+  const nextLocations = {};
+  for (const name of state.locationNames) nextLocations[name] = { items: [] };
+
+  const byId = {};
+  for (const name of state.locationNames) {
+    for (const it of (state.locations[name]?.items || [])) {
+      byId[`${name}|${it.id}`] = it;
+    }
+  }
+
+  for (const it of items) {
+    const bucket = nextLocations[it.location] || (nextLocations[it.location] = { items: [] });
+    const prev = byId[`${it.location}|${it.id}`];
+    if (prev && prev.w === it.w && prev.d === it.d) {
+      // Preserve position + rotation
+      it.x = prev.x; it.y = prev.y;
+      it.rotated = prev.rotated; it.locked = prev.locked;
+    }
+    bucket.items.push(it);
+  }
+  state.locations = nextLocations;
+
+  saveLocal();
+  renderAll();
+  toast(`Loaded ${items.length} items across ${state.locationNames.length} location(s)`, "success");
+}
+
+// =====================================================================
+// STATS + GEOMETRY
+// =====================================================================
+function currentItems() { return state.locations[state.activeLocation]?.items || []; }
+function placedItems()  { return currentItems().filter(it => it.x != null); }
+function unplacedItems(){ return currentItems().filter(it => it.x == null); }
+
+function stagingTopIn()  { return TRAILER_WIDTH_IN + STAGING_GAP_IN; }
+function stagingBotIn()  { return stagingTopIn() + STAGING_HEIGHT_IN; }
+function totalCanvasHeightIn() { return stagingBotIn(); }
+
+function isInTrailer(it) {
+  if (it.x == null || it.y == null) return false;
+  const [, d] = renderedWH(it);
+  return it.y >= 0 && it.y + d <= TRAILER_WIDTH_IN;
+}
+function isInStaging(it) {
+  if (it.x == null || it.y == null) return false;
+  const [, d] = renderedWH(it);
+  const top = stagingTopIn();
+  return it.y >= top && it.y + d <= top + STAGING_HEIGHT_IN;
+}
+function inTrailerItems() { return currentItems().filter(isInTrailer); }
+function inStagingItems() { return currentItems().filter(isInStaging); }
+
+function renderedWH(it) {
+  return it.rotated ? [it.d, it.w] : [it.w, it.d];
+}
+
+function boxOverlaps(a, b) {
+  const [aw, ad] = renderedWH(a);
+  const [bw, bd] = renderedWH(b);
+  return a.x < b.x + bw && a.x + aw > b.x &&
+         a.y < b.y + bd && a.y + ad > b.y;
+}
+
+function updateOverlaps() {
+  const placed = placedItems();
+  for (const it of placed) it._overlap = false;
+  // Only flag overlaps inside the trailer — staging is free-form preview.
+  const inTrailer = placed.filter(isInTrailer);
+  for (let i = 0; i < inTrailer.length; i++) {
+    for (let j = i + 1; j < inTrailer.length; j++) {
+      if (boxOverlaps(inTrailer[i], inTrailer[j])) {
+        inTrailer[i]._overlap = true;
+        inTrailer[j]._overlap = true;
+      }
+    }
+  }
+}
+
+function totalAreaUsedIn2() {
+  let s = 0;
+  for (const it of currentItems()) s += it.w * it.d;
+  return s;
+}
+function trailerAreaUsedIn2() {
+  let s = 0;
+  for (const it of inTrailerItems()) s += it.w * it.d;
+  return s;
+}
+
+// =====================================================================
+// RENDERING
+// =====================================================================
+function computeScale() {
+  const stage = $("#stage");
+  const availW = stage.clientWidth - 90;           // padding + ruler
+  const availH = stage.clientHeight - 140;         // padding + stats bar + gap
+  const totalCanvasH = totalCanvasHeightIn();
+  const sW = availW / TRAILER_LENGTH_IN;
+  const sH = availH / totalCanvasH;
+  pxPerInch = Math.max(1.0, Math.min(sW, sH, 3.5));
+}
+
+function renderTabs() {
+  const tabs = $("#tabs");
+  tabs.innerHTML = "";
+  for (const name of state.locationNames) {
+    const b = document.createElement("button");
+    b.textContent = name;
+    if (name === state.activeLocation) b.classList.add("active");
+    b.onclick = () => {
+      state.activeLocation = name;
+      saveLocal();
+      renderAll();
+    };
+    tabs.appendChild(b);
+  }
+}
+
+function renderTrailer() {
+  TRAILER_LENGTH_IN = state.trailer.length;
+  TRAILER_WIDTH_IN  = state.trailer.width;
+  computeScale();
+  const trailer = $("#trailer");
+  const Wpx = inchesToPx(TRAILER_LENGTH_IN);
+  const totalH = totalCanvasHeightIn();
+  trailer.style.width = Wpx + "px";
+  trailer.style.height = inchesToPx(totalH) + "px";
+  trailer.innerHTML = "";
+
+  // --- Trailer rectangle (top) ---
+  const trailerRect = document.createElement("div");
+  trailerRect.className = "trailer-rect";
+  trailerRect.style.width = Wpx + "px";
+  trailerRect.style.height = inchesToPx(TRAILER_WIDTH_IN) + "px";
+  trailer.appendChild(trailerRect);
+
+  // FRONT / REAR labels on trailer ends
+  const frontLbl = document.createElement("div");
+  frontLbl.className = "end-label left";
+  frontLbl.textContent = "FRONT";
+  trailerRect.appendChild(frontLbl);
+  const rearLbl = document.createElement("div");
+  rearLbl.className = "end-label right";
+  rearLbl.textContent = "REAR";
+  trailerRect.appendChild(rearLbl);
+
+  // Grid lines every 6 in (minor), every 12 in (major) — inside trailer only
+  for (let x = GRID_IN; x < TRAILER_LENGTH_IN; x += GRID_IN) {
+    const d = document.createElement("div");
+    d.className = "grid-line-v" + (x % 12 === 0 ? " major" : "");
+    d.style.left = inchesToPx(x) + "px";
+    trailerRect.appendChild(d);
+  }
+  for (let y = GRID_IN; y < TRAILER_WIDTH_IN; y += GRID_IN) {
+    const d = document.createElement("div");
+    d.className = "grid-line-h" + (y % 12 === 0 ? " major" : "");
+    d.style.top = inchesToPx(y) + "px";
+    trailerRect.appendChild(d);
+  }
+  // Ruler ticks every foot
+  for (let x = 0; x <= TRAILER_LENGTH_IN; x += 12) {
+    const r = document.createElement("div");
+    r.className = "ruler-x";
+    r.style.left = inchesToPx(x) + "px";
+    r.textContent = (x / 12) + "'";
+    trailerRect.appendChild(r);
+  }
+  for (let y = 0; y <= TRAILER_WIDTH_IN; y += 12) {
+    const r = document.createElement("div");
+    r.className = "ruler-y";
+    r.style.top = inchesToPx(y) + "px";
+    r.textContent = (y / 12) + "'";
+    trailerRect.appendChild(r);
+  }
+
+  // --- Staging rectangle (bottom) ---
+  const stagingRect = document.createElement("div");
+  stagingRect.className = "staging-rect";
+  stagingRect.style.width = Wpx + "px";
+  stagingRect.style.height = inchesToPx(STAGING_HEIGHT_IN) + "px";
+  stagingRect.style.top = inchesToPx(stagingTopIn()) + "px";
+  trailer.appendChild(stagingRect);
+
+  const stagingLbl = document.createElement("div");
+  stagingLbl.className = "staging-label";
+  stagingLbl.textContent = "STAGING AREA — drag items here to preview their size";
+  stagingLbl.style.top = "8px";
+  stagingLbl.style.left = "12px";
+  stagingRect.appendChild(stagingLbl);
+
+  // Placed boxes (trailer + staging both use unified x/y in the #trailer coord space)
+  updateOverlaps();
+  for (const it of placedItems()) {
+    trailer.appendChild(createBoxEl(it));
+  }
+
+  // Empty-state hint inside the trailer rectangle
+  if (currentItems().length === 0) {
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.innerHTML = `
+      <strong>No items loaded yet</strong><br>
+      Click <strong>📡 Load from URL</strong> to pull from a published Google Sheet,<br>
+      or <strong>📄 Upload CSV</strong> to load a downloaded file.
+    `;
+    trailerRect.appendChild(hint);
+  }
+}
+
+function createBoxEl(it) {
+  const [w, d] = renderedWH(it);
+  const el = document.createElement("div");
+  el.className = "box";
+  if (it._overlap) el.classList.add("overlap");
+  if (it.locked) el.classList.add("locked");
+  el.dataset.id = it.id;
+  el.style.left = inchesToPx(it.x) + "px";
+  el.style.top  = inchesToPx(it.y) + "px";
+  el.style.width  = inchesToPx(w) + "px";
+  el.style.height = inchesToPx(d) + "px";
+  el.style.background = it.color;
+  el.title = label(it) + (it.desc ? `\n${it.desc}` : "");
+
+  const dispW = it.rotated ? it.d : it.w;
+  const dispD = it.rotated ? it.w : it.d;
+  el.innerHTML = `
+    <div class="team">${esc(it.team)} • #${esc(it.itemNum)}</div>
+    <div class="desc">${esc(it.desc || "")}</div>
+    <div class="dims">${dispW}" × ${dispD}"</div>
+  `;
+  // Hide smaller details if the box is tiny
+  if (inchesToPx(w) < 55 || inchesToPx(d) < 36) {
+    el.querySelector(".desc").style.display = "none";
+  }
+  if (inchesToPx(d) < 26) {
+    el.querySelector(".dims").style.display = "none";
+  }
+
+  el.addEventListener("mousedown", onBoxMouseDown);
+  el.addEventListener("contextmenu", onBoxContext);
+  el.addEventListener("mouseenter", () => hoveredBoxId = it.id);
+  el.addEventListener("mouseleave", () => { if (hoveredBoxId === it.id) hoveredBoxId = null; });
+  return el;
+}
+
+function renderPool() {
+  const pool = $("#pool");
+  pool.innerHTML = "";
+  const items = unplacedItems();
+  items.sort((a, b) => (b.w * b.d) - (a.w * a.d));
+  for (const it of items) {
+    const el = document.createElement("div");
+    el.className = "pool-box";
+    el.dataset.id = it.id;
+    el.title = `Raw: ${it.wRaw}" × ${it.dRaw}" → rounded ${it.w}" × ${it.d}"`;
+    el.innerHTML = `
+      <div class="swatch" style="background:${esc(it.color)}"></div>
+      <div class="label">${esc(it.team)} • Item ${esc(it.itemNum)}<br>
+        <span style="color:var(--muted);font-size:11px;">${esc(it.desc || "")}</span>
+      </div>
+      <div class="size">${it.w}×${it.d}</div>
+    `;
+    el.addEventListener("mousedown", onBoxMouseDown);
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showCtxMenu(e.clientX, e.clientY, [
+        { label: "Rotate 90°", fn: () => { it.rotated = !it.rotated; saveLocal(); renderAll(); } }
+      ]);
+    });
+    pool.appendChild(el);
+  }
+
+  const total = currentItems().length;
+  const inTrailer = inTrailerItems().length;
+  const inStaging = inStagingItems().length;
+  const unplaced = total - inTrailer - inStaging;
+  $("#pool-stats").innerHTML = `
+    <strong>${inTrailer}/${total}</strong> in truck<br>
+    <span style="color:var(--muted)">${inStaging} staged · ${unplaced} in pool</span>
+  `;
+}
+
+function renderStats() {
+  const items = currentItems();
+  const trailerArea = TRAILER_LENGTH_IN * TRAILER_WIDTH_IN;
+  const inTrailer = inTrailerItems();
+  const inStaging = inStagingItems();
+  const inTrailerCount = inTrailer.length;
+  const inStagingCount = inStaging.length;
+  const poolCount = items.length - inTrailerCount - inStagingCount;
+  const placedArea = trailerAreaUsedIn2();
+  const totalArea = totalAreaUsedIn2();
+  const pct = trailerArea ? (placedArea / trailerArea * 100).toFixed(1) : "0";
+  const totalPct = trailerArea ? (totalArea / trailerArea * 100).toFixed(1) : "0";
+  const ft2Placed = (placedArea / 144).toFixed(0);
+  const ft2Total = (totalArea / 144).toFixed(0);
+  const overlaps = inTrailer.filter(it => it._overlap).length;
+  $("#stats").innerHTML = `
+    <div class="stat"><span class="k">Truck area used</span><span class="v">${ft2Placed} ft² (${pct}%)</span></div>
+    <div class="stat"><span class="k">Total needed</span><span class="v">${ft2Total} ft² (${totalPct}%)</span></div>
+    <div class="stat"><span class="k">In truck</span><span class="v">${inTrailerCount}/${items.length}</span></div>
+    <div class="stat"><span class="k">In staging</span><span class="v">${inStagingCount}</span></div>
+    <div class="stat"><span class="k">In pool</span><span class="v">${poolCount}</span></div>
+    ${overlaps > 0 ? `<div class="stat danger"><span class="k">Overlaps</span><span class="v">${overlaps}</span></div>` : ""}
+  `;
+}
+
+function renderAll() {
+  renderTabs();
+  renderTrailer();
+  renderPool();
+  renderStats();
+}
+
+// =====================================================================
+// DRAG + DROP
+// =====================================================================
+function onBoxMouseDown(e) {
+  if (e.button !== 0) return;
+  const id = e.currentTarget.dataset.id;
+  const it = currentItems().find(x => x.id === id);
+  if (!it) return;
+
+  const fromPool = it.x == null;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const offsetX = e.clientX - rect.left;
+  const offsetY = e.clientY - rect.top;
+
+  // Build a ghost that follows the cursor
+  const [w, d] = renderedWH(it);
+  const ghost = document.createElement("div");
+  ghost.className = "box dragging";
+  ghost.style.position = "fixed";
+  ghost.style.zIndex = 1500;
+  ghost.style.pointerEvents = "none";
+  ghost.style.width = inchesToPx(w) + "px";
+  ghost.style.height = inchesToPx(d) + "px";
+  ghost.style.background = it.color;
+  const dispW = it.rotated ? it.d : it.w;
+  const dispD = it.rotated ? it.w : it.d;
+  ghost.innerHTML = `<div class="team">${esc(it.team)} • #${esc(it.itemNum)}</div><div class="desc">${esc(it.desc || "")}</div><div class="dims">${dispW}" × ${dispD}"</div>`;
+  document.body.appendChild(ghost);
+
+  drag = { item: it, ghost, offsetX, offsetY, fromPool };
+  e.currentTarget.classList.add("dragging");
+  document.body.style.cursor = "grabbing";
+  moveGhost(e.clientX, e.clientY);
+  e.preventDefault();
+}
+
+function moveGhost(cx, cy) {
+  if (!drag) return;
+  drag.ghost.style.left = (cx - drag.offsetX) + "px";
+  drag.ghost.style.top = (cy - drag.offsetY) + "px";
+}
+
+function onMouseMove(e) {
+  if (!drag) return;
+  moveGhost(e.clientX, e.clientY);
+
+  // Highlight trailer if inside
+  const trailer = $("#trailer");
+  const rect = trailer.getBoundingClientRect();
+  const pool = $("aside");
+  const poolRect = pool.getBoundingClientRect();
+
+  if (e.clientX >= rect.left && e.clientX <= rect.right &&
+      e.clientY >= rect.top  && e.clientY <= rect.bottom) {
+    trailer.classList.add("drop-zone");
+    pool.classList.remove("drop-zone");
+  } else if (e.clientX >= poolRect.left && e.clientX <= poolRect.right &&
+             e.clientY >= poolRect.top  && e.clientY <= poolRect.bottom) {
+    pool.classList.add("drop-zone");
+    trailer.classList.remove("drop-zone");
+  } else {
+    trailer.classList.remove("drop-zone");
+    pool.classList.remove("drop-zone");
+  }
+}
+
+function onMouseUp(e) {
+  if (!drag) return;
+  const it = drag.item;
+  const ghost = drag.ghost;
+
+  const trailer = $("#trailer");
+  const rect = trailer.getBoundingClientRect();
+  const pool = $("aside");
+  const poolRect = pool.getBoundingClientRect();
+
+  if (e.clientX >= rect.left && e.clientX <= rect.right &&
+      e.clientY >= rect.top  && e.clientY <= rect.bottom) {
+    // Drop on the canvas — determine region (trailer vs staging) by y.
+    const xPx = e.clientX - drag.offsetX - rect.left;
+    const yPx = e.clientY - drag.offsetY - rect.top;
+    let xIn = Math.round(xPx / pxPerInch / GRID_IN) * GRID_IN;
+    let yIn = Math.round(yPx / pxPerInch / GRID_IN) * GRID_IN;
+    const [w, d] = renderedWH(it);
+    xIn = Math.max(0, Math.min(TRAILER_LENGTH_IN - w, xIn));
+
+    // Figure out which region the drop center lands in.
+    // Split at the middle of the visual gap between trailer bottom and staging top —
+    // drops visually inside the trailer stay in trailer; drops past the gap go to staging.
+    const centerY = yIn + d / 2;
+    const gapMid = TRAILER_WIDTH_IN + STAGING_GAP_IN / 2;
+    const goingToTrailer = centerY < gapMid;
+
+    if (goingToTrailer) {
+      yIn = Math.max(0, Math.min(TRAILER_WIDTH_IN - d, yIn));
+      it.locked = true;
+    } else {
+      const top = stagingTopIn();
+      yIn = Math.max(top, Math.min(stagingBotIn() - d, yIn));
+      it.locked = false;
+    }
+    it.x = xIn; it.y = yIn;
+  } else if (e.clientX >= poolRect.left && e.clientX <= poolRect.right &&
+             e.clientY >= poolRect.top  && e.clientY <= poolRect.bottom) {
+    it.x = null; it.y = null;
+    it.locked = false;
+  }
+  // else: revert (no change)
+
+  ghost.remove();
+  trailer.classList.remove("drop-zone");
+  pool.classList.remove("drop-zone");
+  document.body.style.cursor = "";
+  drag = null;
+  saveLocal();
+  renderAll();
+}
+
+document.addEventListener("mousemove", onMouseMove);
+document.addEventListener("mouseup", onMouseUp);
+
+// Right-click context menu on placed boxes
+function onBoxContext(e) {
+  e.preventDefault();
+  const id = e.currentTarget.dataset.id;
+  const it = currentItems().find(x => x.id === id);
+  if (!it) return;
+  showCtxMenu(e.clientX, e.clientY, [
+    { label: "Rotate 90°", fn: () => { rotateItem(it); } },
+    { label: it.locked ? "Unlock" : "Lock (ignore auto-pack)", fn: () => { it.locked = !it.locked; saveLocal(); renderAll(); } },
+    { label: "Send to pool", fn: () => { it.x = null; it.y = null; it.locked = false; saveLocal(); renderAll(); } }
+  ]);
+}
+
+function rotateItem(it) {
+  // Capture which region it lived in *before* we mutate rotation/dimensions.
+  const wasInStaging = it.y != null && it.y >= stagingTopIn() - STAGING_GAP_IN / 2;
+  it.rotated = !it.rotated;
+  // Clamp position so rotated box is still inside its region
+  if (it.x != null) {
+    const [w, d] = renderedWH(it);
+    it.x = Math.max(0, Math.min(TRAILER_LENGTH_IN - w, it.x));
+    if (wasInStaging) {
+      const top = stagingTopIn();
+      it.y = Math.max(top, Math.min(stagingBotIn() - d, it.y));
+    } else {
+      it.y = Math.max(0, Math.min(TRAILER_WIDTH_IN - d, it.y));
+    }
+  }
+  saveLocal();
+  renderAll();
+}
+
+function showCtxMenu(x, y, items) {
+  const menu = $("#ctx-menu");
+  menu.innerHTML = "";
+  for (const { label, fn } of items) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.onclick = () => { hideCtxMenu(); fn(); };
+    menu.appendChild(b);
+  }
+  menu.style.left = x + "px";
+  menu.style.top = y + "px";
+  menu.classList.add("open");
+}
+function hideCtxMenu() { $("#ctx-menu").classList.remove("open"); }
+document.addEventListener("click", hideCtxMenu);
+
+// Keyboard: R to rotate hovered box
+document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "r" && hoveredBoxId &&
+      document.activeElement.tagName !== "INPUT") {
+    const it = currentItems().find(x => x.id === hoveredBoxId);
+    if (it) rotateItem(it);
+  }
+});
+
+// =====================================================================
+// AUTO-PACK
+// =====================================================================
+/**
+ * Bottom-left fill heuristic on a 6"-aligned grid.
+ * "obstacles" = items to treat as immovable.
+ * "toPack"    = items to place (must have w/d; x/y/rotated may be clobbered).
+ * Returns { placed, failed }.
+ */
+function autoPackItems(toPack, obstacles) {
+  // Sort by area descending so big items go first
+  toPack = toPack.slice().sort((a, b) => (b.w * b.d) - (a.w * a.d));
+  const placed = [];
+  const failed = [];
+  const working = obstacles.slice();
+
+  for (const it of toPack) {
+    const origX = it.x, origY = it.y, origRot = it.rotated;
+    let best = null;
+    for (const rot of [false, true]) {
+      const w = rot ? it.d : it.w;
+      const d = rot ? it.w : it.d;
+      if (w > TRAILER_LENGTH_IN || d > TRAILER_WIDTH_IN) continue;
+      for (let x = 0; x <= TRAILER_LENGTH_IN - w; x += GRID_IN) {
+        for (let y = 0; y <= TRAILER_WIDTH_IN - d; y += GRID_IN) {
+          const candidate = { x, y, w, d, rot };
+          if (!anyCollision(candidate, working)) {
+            const score = x * 10000 + y;
+            if (best == null || score < best.score) {
+              best = { ...candidate, score };
+              if (x === 0 && y === 0) break;
+            }
+          }
+        }
+        if (best && best.x === 0 && best.y === 0) break;
+      }
+    }
+    if (best) {
+      it.x = best.x; it.y = best.y; it.rotated = best.rot;
+      working.push({ x: it.x, y: it.y, w: best.w, d: best.d });
+      placed.push(it);
+    } else {
+      // Keep item in original location (pool, staging, etc.) on failure.
+      it.x = origX; it.y = origY; it.rotated = origRot;
+      failed.push(it);
+    }
+  }
+  return { placed, failed };
+}
+
+function anyCollision(cand, obs) {
+  for (const o of obs) {
+    if (cand.x < o.x + o.w && cand.x + cand.w > o.x &&
+        cand.y < o.y + o.d && cand.y + cand.d > o.y) return true;
+  }
+  return false;
+}
+
+function autoPackFinish() {
+  // Obstacles = items currently in the trailer.
+  // Candidates = everything else (pool + staging).
+  const items = currentItems();
+  const obstacles = inTrailerItems().map(it => {
+    const [w, d] = renderedWH(it);
+    return { x: it.x, y: it.y, w, d };
+  });
+  const toPack = items.filter(it => !isInTrailer(it));
+  const { placed, failed } = autoPackItems(toPack, obstacles);
+  saveLocal();
+  renderAll();
+  toast(`Placed ${placed.length}${failed.length ? `, ${failed.length} didn't fit — left in place` : ""}`, failed.length ? "error" : "success");
+}
+
+function autoPackAll() {
+  const items = currentItems();
+  // Clear every position first — fresh pack from scratch.
+  for (const it of items) { it.x = null; it.y = null; it.locked = false; }
+  const { placed, failed } = autoPackItems(items, []);
+  saveLocal();
+  renderAll();
+  toast(`Placed ${placed.length}${failed.length ? `, ${failed.length} didn't fit` : ""}`, failed.length ? "error" : "success");
+}
+
+// =====================================================================
+// SAVE / LOAD (localStorage + URL hash)
+// =====================================================================
+const LS_KEY = "truckpacker_state_v1";
+
+function compactState() {
+  const s = {
+    a: state.activeLocation,
+    n: state.locationNames,
+    u: state.csvUrl,
+    su: state.syncUrl,
+    tl: state.trailer.length,
+    tw: state.trailer.width,
+    l: {}
+  };
+  for (const name of state.locationNames) {
+    const items = state.locations[name]?.items || [];
+    s.l[name] = items.map(it => ({
+      i: it.id, t: it.team, k: it.itemNum, s: it.desc,
+      wr: it.wRaw, dr: it.dRaw, w: it.w, d: it.d,
+      x: it.x, y: it.y, r: it.rotated ? 1 : 0,
+      L: it.locked ? 1 : 0, lo: it.location
+    }));
+  }
+  return s;
+}
+function expandState(s) {
+  const out = {
+    activeLocation: s.a,
+    locationNames: s.n,
+    csvUrl: s.u || null,
+    syncUrl: s.su || null,
+    trailer: { length: s.tl || 630, width: s.tw || 100 },
+    locations: {}
+  };
+  for (const name of s.n) {
+    out.locations[name] = {
+      items: (s.l[name] || []).map(it => ({
+        id: it.i, team: it.t, itemNum: it.k, desc: it.s,
+        wRaw: it.wr, dRaw: it.dr, w: it.w, d: it.d,
+        x: it.x, y: it.y, rotated: !!it.r, locked: !!it.L,
+        color: colorForTeam(it.t), location: it.lo || name
+      }))
+    };
+  }
+  return out;
+}
+
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(compactState())); } catch (e) {}
+}
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    state = expandState(JSON.parse(raw));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Base64url
+function b64uEncode(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64uDecode(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  return decodeURIComponent(escape(atob(str)));
+}
+
+function makeShareUrl() {
+  const s = compactState();
+  const hash = b64uEncode(JSON.stringify(s));
+  return location.origin + location.pathname + "#s=" + hash;
+}
+
+function loadFromHash() {
+  const h = location.hash;
+  const m = /[#&]s=([^&]+)/.exec(h);
+  if (!m) return false;
+  try {
+    const json = b64uDecode(m[1]);
+    state = expandState(JSON.parse(json));
+    return true;
+  } catch (e) { console.warn("Bad share hash", e); return false; }
+}
+
+async function shareNow() {
+  const url = makeShareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Shareable link copied to clipboard", "success");
+  } catch (e) {
+    prompt("Copy the shareable link:", url);
+  }
+}
+
+/**
+ * Commit the current layout to the URL. Updates the browser URL hash with the
+ * full encoded state (so the page is bookmarkable / shareable) and copies the
+ * URL to the clipboard. No server round-trip.
+ */
+async function commitToURL() {
+  const s = compactState();
+  const hash = b64uEncode(JSON.stringify(s));
+  const url = location.origin + location.pathname + "#s=" + hash;
+  history.replaceState(null, "", "#s=" + hash);
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Layout committed to URL — link copied to clipboard", "success");
+  } catch (e) {
+    toast("Layout committed to URL (clipboard copy blocked — URL is in the address bar)", "success");
+  }
+}
+
+// =====================================================================
+// WIRING
+// =====================================================================
+$("#btn-commit").onclick = commitToURL;
+$("#btn-check-updates").onclick = checkForUpdates;
+$("#btn-update-cancel").onclick = () => $("#update-modal").classList.remove("open");
+$("#btn-load-url").onclick = () => {
+  $("#url-input").value = state.csvUrl || "";
+  $("#load-url-modal").classList.add("open");
+  setTimeout(() => $("#url-input").focus(), 50);
+};
+$("#btn-load-url-cancel").onclick = () => $("#load-url-modal").classList.remove("open");
+$("#btn-load-url-go").onclick = async () => {
+  const url = $("#url-input").value.trim();
+  if (!url) { toast("Paste a URL first", "error"); return; }
+  $("#load-url-modal").classList.remove("open");
+  await loadFromUrl(url);
+};
+$("#file-input").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  applyCsvText(text);
+  e.target.value = "";
+});
+
+// Hidden file input used by "Check for Updates" when no CSV URL is stored.
+const updateFileInput = document.createElement("input");
+updateFileInput.type = "file";
+updateFileInput.accept = ".csv,.tsv,.txt";
+updateFileInput.style.display = "none";
+document.body.appendChild(updateFileInput);
+updateFileInput.addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  e.target.value = "";
+  runDiffFromText(text);
+});
+
+function runDiffFromText(text) {
+  let parsed;
+  try {
+    const rows = parseCSV(text);
+    parsed = parseSheetToItems(rows);
+  } catch (e) {
+    toast(`Parse failed: ${e.message}`, "error");
+    return;
+  }
+  if (currentItems().length === 0 && allItemsCount() === 0) {
+    // No items yet — just load the file instead of diffing against nothing.
+    applyCsvText(text);
+    toast(`Loaded ${parsed.items.length} items`, "success");
+    return;
+  }
+  const diff = computeItemDiff(state, parsed.items);
+  if (!diffHasChanges(diff)) {
+    toast("Already up to date — no changes in the new file", "success");
+    return;
+  }
+  showUpdateModal(diff, parsed.items);
+}
+
+function allItemsCount() {
+  let n = 0;
+  for (const loc of state.locationNames) {
+    n += (state.locations[loc]?.items?.length || 0);
+  }
+  return n;
+}
+
+$("#btn-auto-finish").onclick = autoPackFinish;
+$("#btn-auto-all").onclick = () => {
+  if (confirm("This will clear your current layout and re-pack everything from scratch. Continue?")) {
+    autoPackAll();
+  }
+};
+
+$("#btn-reset").onclick = () => {
+  if (!confirm("Unplace all items in this location?")) return;
+  for (const it of currentItems()) { it.x = null; it.y = null; it.locked = false; }
+  saveLocal(); renderAll();
+  toast("All items unplaced");
+};
+
+$("#btn-settings").onclick = () => {
+  $("#setting-len").value = state.trailer.length;
+  $("#setting-wid").value = state.trailer.width;
+  $("#settings-modal").classList.add("open");
+};
+$("#btn-settings-cancel").onclick = () => $("#settings-modal").classList.remove("open");
+$("#btn-settings-save").onclick = () => {
+  const L = parseFloat($("#setting-len").value);
+  const W = parseFloat($("#setting-wid").value);
+  if (!isFinite(L) || L < 24 || !isFinite(W) || W < 24) {
+    toast("Enter numeric dimensions (at least 24 inches each)", "error");
+    return;
+  }
+  state.trailer.length = Math.round(L);
+  state.trailer.width = Math.round(W);
+  $("#settings-modal").classList.remove("open");
+  saveLocal();
+  renderAll();
+};
+
+window.addEventListener("resize", renderAll);
+
+// =====================================================================
+// BOOT
+// =====================================================================
+(function boot() {
+  const fromHash = loadFromHash();
+  if (!fromHash) loadLocal();
+  renderAll();
+  if (fromHash) {
+    toast("Loaded from shared link", "success");
+    // Clear hash so user can keep sharing cleanly; keep state in LS
+    history.replaceState(null, "", location.pathname);
+    saveLocal();
+  }
+})();
+</script>
+</body>
+</html>
