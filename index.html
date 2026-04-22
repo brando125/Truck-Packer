@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Truck Packer — 53' Trailer Layout</title>
+<title>NEFIRST Truck Packer 5000</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -37,7 +37,19 @@
     border-bottom: 1px solid var(--border);
     flex-wrap: wrap;
   }
-  h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: 0.3px; }
+  h1 {
+    font-size: 16px; margin: 0; font-weight: 600; letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h1 .brand-logo {
+    height: 28px; width: auto;
+    background: #fff; padding: 3px 6px; border-radius: 4px;
+    display: block;
+  }
+  h1 .brand-logo.missing {
+    font-size: 11px; color: #b91c1c; background: transparent; padding: 0;
+    font-weight: 700;
+  }
   .spacer { flex: 1; }
   .tabs { display: flex; gap: 4px; }
   .tabs button {
@@ -231,6 +243,20 @@
   .modal .actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
   .modal p.hint { font-size: 12px; color: var(--muted); margin: 8px 0; }
 
+  .diff-section {
+    margin: 6px 0; padding: 8px 12px;
+    border-radius: 4px; font-size: 12px;
+    border-left: 3px solid transparent;
+  }
+  .diff-section.added   { background: #052e16; border-left-color: #22c55e; }
+  .diff-section.removed { background: #450a0a; border-left-color: #ef4444; }
+  .diff-section.changed { background: #422006; border-left-color: #eab308; }
+  .diff-section strong { color: var(--text); font-size: 12px; }
+  .diff-section ul { margin: 4px 0 0 0; padding-left: 18px; line-height: 1.55; color: var(--muted); }
+  .diff-section li strong.team { color: var(--text); }
+  .diff-h3 { font-size: 14px; margin: 14px 0 4px 0; color: var(--accent); }
+  .diff-modal-body { max-height: 50vh; overflow-y: auto; padding-right: 6px; margin: 8px 0; }
+
   .toast {
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
     background: var(--panel); border: 1px solid var(--border);
@@ -278,16 +304,19 @@
 <body>
 
 <header>
-  <h1>🚛 Truck Packer</h1>
+  <h1>
+    <img class="brand-logo" src="logo.png" alt="NE FIRST"
+         onerror="this.outerHTML='<span class=&quot;brand-logo missing&quot;>(upload logo.png)</span>'">
+    🚛 NEFIRST Truck Packer 5000
+  </h1>
   <div class="tabs" id="tabs"></div>
   <div class="spacer"></div>
-  <button class="btn primary" id="btn-load">📥 Load Truck</button>
-  <button class="btn success" id="btn-commit">💾 Commit Layout</button>
-  <label class="btn file-label" for="file-input">📄 Upload CSV</label>
+  <label class="btn primary file-label" for="file-input">📄 Upload CSV</label>
   <input type="file" id="file-input" accept=".csv,.tsv,.txt">
+  <button class="btn" id="btn-check-updates">🔄 Check for Updates</button>
+  <button class="btn success" id="btn-commit">💾 Commit Layout</button>
   <button class="btn" id="btn-auto-finish">✨ Finish Auto-Pack</button>
   <button class="btn warn" id="btn-auto-all">🤖 Auto-Pack All</button>
-  <button class="btn" id="btn-share">🔗 Share</button>
   <button class="btn" id="btn-settings">⚙︎</button>
   <button class="btn danger" id="btn-reset">⟲ Unpack All</button>
 </header>
@@ -314,6 +343,22 @@
   </section>
 </main>
 
+<div class="modal-backdrop" id="update-modal">
+  <div class="modal" style="min-width:560px;max-width:720px;">
+    <h2>Sheet Changes</h2>
+    <p class="hint">
+      Review the changes from the sheet. Items whose dimensions changed will return to the pool
+      (so you can re-place them). Items whose positions you've already set will be preserved when
+      only the description or other metadata changed.
+    </p>
+    <div class="diff-modal-body" id="update-modal-body"></div>
+    <div class="actions">
+      <button class="btn" id="btn-update-cancel">Cancel</button>
+      <button class="btn primary" id="btn-update-apply">Apply Changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="settings-modal">
   <div class="modal">
     <h2>Trailer Dimensions</h2>
@@ -325,68 +370,6 @@
     <div class="actions">
       <button class="btn" id="btn-settings-cancel">Cancel</button>
       <button class="btn primary" id="btn-settings-save">Save</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="load-modal">
-  <div class="modal" style="min-width:560px;max-width:680px;">
-    <h2>Load Truck</h2>
-    <p class="hint">
-      The <strong>Published CSV URL</strong> pulls the item list. The <strong>Sync URL</strong>
-      (optional) pulls and saves the layout to a hidden tab in your spreadsheet so anyone with
-      both URLs sees the same packed layout.
-    </p>
-    <label for="url-input">Published CSV URL (items)</label>
-    <input type="text" id="url-input" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-    <label for="sync-input">Sync URL (Apps Script web app, optional)</label>
-    <input type="text" id="sync-input" placeholder="https://script.google.com/macros/s/AKfy.../exec">
-    <details style="margin-top:10px;font-size:12px;">
-      <summary style="cursor:pointer;color:var(--accent);">How to set up the Sync URL (one-time, ~3 min)</summary>
-      <ol style="color:var(--muted);padding-left:20px;line-height:1.55;">
-        <li>Open your spreadsheet → <strong>Extensions → Apps Script</strong>.</li>
-        <li>Delete any default code, paste in the script below, click <strong>Save</strong>.</li>
-        <li>Click <strong>Deploy → New deployment</strong> → gear icon → <strong>Web app</strong>.</li>
-        <li>Set <strong>Execute as: Me</strong>, <strong>Who has access: Anyone</strong>, click <strong>Deploy</strong>, authorize.</li>
-        <li>Copy the <strong>Web app URL</strong> it shows, paste it above.</li>
-      </ol>
-      <pre id="apps-script-code" style="background:#0f172a;color:#cbd5e1;padding:10px;border-radius:4px;font-size:11px;overflow:auto;max-height:220px;border:1px solid var(--border);">const STATE_TAB = 'TruckPackerState';
-
-function doGet(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STATE_TAB);
-  const state = sheet ? String(sheet.getRange('A1').getValue() || '') : '';
-  const updatedAt = sheet ? String(sheet.getRange('B1').getValue() || '') : '';
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, state, updatedAt }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(STATE_TAB);
-  if (!sheet) { sheet = ss.insertSheet(STATE_TAB); sheet.hideSheet(); }
-  const body = (e &amp;&amp; e.postData &amp;&amp; e.postData.contents) || '';
-  const now = new Date().toISOString();
-  sheet.getRange('A1').setValue(body);
-  sheet.getRange('B1').setValue(now);
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, updatedAt: now }))
-    .setMimeType(ContentService.MimeType.JSON);
-}</pre>
-      <button type="button" class="btn" id="btn-copy-script" style="margin-top:6px;">Copy Apps Script</button>
-    </details>
-    <p class="hint" id="merge-hint">
-      <strong>Merge mode:</strong> positions for matching items are preserved across reloads.
-    </p>
-    <p class="hint" style="background:#422006;border:1px solid #b45309;padding:8px;border-radius:4px;">
-      If Load fails, use <strong>Upload CSV</strong> or the paste box below — common when opened from <code>file://</code>.
-    </p>
-    <label for="paste-input">Or paste CSV directly</label>
-    <textarea id="paste-input" rows="3"
-      style="width:100%;padding:8px;font-size:12px;background:#0f172a;color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;"
-      placeholder="Paste raw CSV contents here as a fallback"></textarea>
-    <div class="actions">
-      <button class="btn" id="btn-load-cancel">Cancel</button>
-      <button class="btn" id="btn-load-paste">Use Pasted</button>
-      <button class="btn primary" id="btn-load-go">Load</button>
     </div>
   </div>
 </div>
@@ -597,8 +580,9 @@ function parseSheetToItems(rows) {
         itemNum: blk.n,
         desc: desc || `(unnamed)`,
         wRaw, dRaw,
-        w: roundUpToGrid(wRaw),
-        d: roundUpToGrid(dRaw),
+        // Round up to the nearest whole inch (no-op for integer values).
+        w: Math.ceil(wRaw),
+        d: Math.ceil(dRaw),
         x: null, y: null,
         rotated: false,
         locked: false,
@@ -638,7 +622,8 @@ function urlLooksLikeEdit(url) {
   return /\/spreadsheets\/d\/[^/]+\/edit/.test(url);
 }
 
-async function loadFromUrl(url) {
+/** Try fetching CSV text from a URL and its CORS-friendly alternates. Throws on failure. */
+async function fetchCsvText(url) {
   const urls = candidateUrls(url);
   const errors = [];
   for (const u of urls) {
@@ -646,39 +631,197 @@ async function loadFromUrl(url) {
       const res = await fetch(u, { redirect: "follow" });
       if (!res.ok) { errors.push(`${new URL(u).pathname}: HTTP ${res.status}`); continue; }
       const text = await res.text();
-      // Guard against HTML error pages
       if (/^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
         errors.push(`${new URL(u).pathname}: returned HTML (sheet may not be public)`);
         continue;
       }
-      applyCsvText(text);
-      state.csvUrl = url;
-      saveLocal();
-      toast("Loaded from URL", "success");
-      return;
+      return text;
     } catch (e) {
-      errors.push(`${e.message}`);
+      errors.push(e.message);
     }
   }
-  // All attempts failed — give targeted advice
-  let advice;
-  const isFileOrigin = location.protocol === "file:";
-  if (isFileOrigin && urlLooksLikePublished(url)) {
-    advice = "Browser blocked cross-origin fetch from a file:// page. Either (1) paste the CSV " +
-             "into the box below, (2) use Upload CSV, or (3) serve this file through a local web " +
-             "server (cd to its folder then `python -m http.server 8000` and visit http://localhost:8000).";
-  } else if (urlLooksLikeEdit(url)) {
-    advice = "That's an /edit share URL — browsers can't fetch those. In Google Sheets do " +
-             "File → Share → Publish to web → CSV and paste THAT URL, or use Upload CSV.";
-  } else if (!urlLooksLikePublished(url)) {
-    advice = "URL doesn't look like a published CSV. Try File → Share → Publish to web → CSV " +
-             "in Google Sheets, or use Upload CSV.";
-  } else {
-    advice = "Make sure the sheet is Published to web (not just shared). If it is, check DevTools " +
-             "Network tab for the actual error — CORS or a bad URL are the usual suspects.";
+  const err = new Error(errors.join("; "));
+  err.isFetch = true;
+  throw err;
+}
+
+async function loadFromUrl(url) {
+  try {
+    const text = await fetchCsvText(url);
+    applyCsvText(text);
+    state.csvUrl = url;
+    saveLocal();
+    toast("Loaded from URL", "success");
+  } catch (e) {
+    console.error("Fetch failed for all candidates:", e);
+    const isFileOrigin = location.protocol === "file:";
+    let advice;
+    if (isFileOrigin && urlLooksLikePublished(url)) {
+      advice = "Browser blocked cross-origin fetch from a file:// page. Either (1) paste the CSV " +
+               "into the box below, (2) use Upload CSV, or (3) host the file (GitHub Pages, etc.).";
+    } else if (urlLooksLikeEdit(url)) {
+      advice = "That's an /edit share URL — browsers can't fetch those. In Google Sheets do " +
+               "File → Share → Publish to web → CSV and paste THAT URL, or use Upload CSV.";
+    } else if (!urlLooksLikePublished(url)) {
+      advice = "URL doesn't look like a published CSV. Try File → Share → Publish to web → CSV " +
+               "in Google Sheets, or use Upload CSV.";
+    } else {
+      advice = "Make sure the sheet is Published to web. Check DevTools Network tab for details.";
+    }
+    toast("Fetch failed. " + advice, "error");
   }
-  console.error("Fetch failed for all candidates:", errors);
-  toast("Fetch failed. " + advice, "error");
+}
+
+// =====================================================================
+// CHECK FOR UPDATES — diff current items against a fresh fetch of the sheet
+// =====================================================================
+
+/** Compare the live state against freshly-parsed items and categorize the changes. */
+function computeItemDiff(currentState, newItems) {
+  const diff = {};
+  const allLocs = new Set([...currentState.locationNames]);
+  for (const it of newItems) allLocs.add(it.location);
+  for (const loc of allLocs) {
+    diff[loc] = { added: [], removed: [], changedDims: [], changedDesc: [] };
+  }
+
+  const currentByKey = {};
+  for (const loc of currentState.locationNames) {
+    for (const it of (currentState.locations[loc]?.items || [])) {
+      currentByKey[`${loc}|${it.id}`] = it;
+    }
+  }
+  const newByKey = {};
+  for (const it of newItems) newByKey[`${it.location}|${it.id}`] = it;
+
+  for (const it of newItems) {
+    const key = `${it.location}|${it.id}`;
+    const current = currentByKey[key];
+    if (!current) {
+      diff[it.location].added.push(it);
+    } else {
+      const dimsChanged = current.w !== it.w || current.d !== it.d;
+      const descChanged = current.desc !== it.desc;
+      if (dimsChanged) diff[it.location].changedDims.push({ old: current, new: it });
+      else if (descChanged) diff[it.location].changedDesc.push({ old: current, new: it });
+    }
+  }
+
+  for (const loc of currentState.locationNames) {
+    for (const it of (currentState.locations[loc]?.items || [])) {
+      if (!newByKey[`${loc}|${it.id}`]) diff[loc].removed.push(it);
+    }
+  }
+  return diff;
+}
+
+function diffHasChanges(diff) {
+  for (const loc of Object.keys(diff)) {
+    const d = diff[loc];
+    if (d.added.length + d.removed.length + d.changedDims.length + d.changedDesc.length) return true;
+  }
+  return false;
+}
+
+async function checkForUpdates() {
+  // If we have a stored CSV URL (from a share link or past session), fetch and diff.
+  // Otherwise, prompt the user to pick an updated CSV file and diff against that.
+  if (state.csvUrl) {
+    toast("Checking for updates…", "");
+    let text;
+    try {
+      text = await fetchCsvText(state.csvUrl);
+    } catch (e) {
+      toast(`Fetch failed — pick an updated CSV file instead. (${e.message})`, "error");
+      updateFileInput.click();
+      return;
+    }
+    runDiffFromText(text);
+    return;
+  }
+  // No URL — use file picker.
+  updateFileInput.click();
+}
+
+function showUpdateModal(diff, newItems) {
+  const body = $("#update-modal-body");
+  let html = "";
+  const locs = Object.keys(diff).sort();
+  for (const loc of locs) {
+    const d = diff[loc];
+    if (!d.added.length && !d.removed.length && !d.changedDims.length && !d.changedDesc.length) continue;
+    html += `<div class="diff-h3">${esc(loc)}</div>`;
+    if (d.added.length) {
+      html += `<div class="diff-section added"><strong>+ ${d.added.length} new item${d.added.length === 1 ? "" : "s"}</strong><ul>`;
+      for (const it of d.added) {
+        html += `<li>${esc(it.team)} · Item ${esc(it.itemNum)} · ${esc(it.desc)} — <em>${it.w}"×${it.d}"</em></li>`;
+      }
+      html += `</ul></div>`;
+    }
+    if (d.removed.length) {
+      html += `<div class="diff-section removed"><strong>− ${d.removed.length} removed</strong><ul>`;
+      for (const it of d.removed) {
+        const where = it.x != null ? " <em>(currently placed — will be removed)</em>" : "";
+        html += `<li>${esc(it.team)} · Item ${esc(it.itemNum)} · ${esc(it.desc)}${where}</li>`;
+      }
+      html += `</ul></div>`;
+    }
+    if (d.changedDims.length) {
+      html += `<div class="diff-section changed"><strong>⟳ ${d.changedDims.length} resized — returned to pool</strong><ul>`;
+      for (const { old, new: n } of d.changedDims) {
+        html += `<li>${esc(n.team)} · Item ${esc(n.itemNum)}: <em>${old.w}"×${old.d}" → ${n.w}"×${n.d}"</em></li>`;
+      }
+      html += `</ul></div>`;
+    }
+    if (d.changedDesc.length) {
+      html += `<div class="diff-section changed"><strong>✎ ${d.changedDesc.length} renamed — position kept</strong><ul>`;
+      for (const { old, new: n } of d.changedDesc) {
+        html += `<li>${esc(n.team)} · Item ${esc(n.itemNum)}: "${esc(old.desc)}" → "${esc(n.desc)}"</li>`;
+      }
+      html += `</ul></div>`;
+    }
+  }
+  body.innerHTML = html;
+  $("#update-modal").classList.add("open");
+  $("#btn-update-apply").onclick = () => {
+    applyItemUpdate(newItems);
+    $("#update-modal").classList.remove("open");
+  };
+}
+
+/** Replace the item list with newItems, preserving positions wherever safe. */
+function applyItemUpdate(newItems) {
+  const currentByKey = {};
+  for (const loc of state.locationNames) {
+    for (const it of (state.locations[loc]?.items || [])) {
+      currentByKey[`${loc}|${it.id}`] = it;
+    }
+  }
+  const allLocs = new Set();
+  for (const it of newItems) allLocs.add(it.location);
+  const locationNames = Array.from(allLocs);
+  const nextLocations = {};
+  for (const loc of locationNames) nextLocations[loc] = { items: [] };
+
+  for (const it of newItems) {
+    const prev = currentByKey[`${it.location}|${it.id}`];
+    if (prev && prev.w === it.w && prev.d === it.d) {
+      // Preserve position for items whose dimensions are unchanged.
+      it.x = prev.x; it.y = prev.y;
+      it.rotated = prev.rotated;
+      it.locked = prev.locked;
+    }
+    nextLocations[it.location].items.push(it);
+  }
+
+  state.locationNames = locationNames;
+  if (!locationNames.includes(state.activeLocation)) {
+    state.activeLocation = locationNames[0];
+  }
+  state.locations = nextLocations;
+  saveLocal();
+  renderAll();
+  toast("Changes applied", "success");
 }
 
 // =====================================================================
@@ -1447,51 +1590,34 @@ async function shareNow() {
     await navigator.clipboard.writeText(url);
     toast("Shareable link copied to clipboard", "success");
   } catch (e) {
-    // Fallback: open a prompt
     prompt("Copy the shareable link:", url);
+  }
+}
+
+/**
+ * Commit the current layout to the URL. Updates the browser URL hash with the
+ * full encoded state (so the page is bookmarkable / shareable) and copies the
+ * URL to the clipboard. No server round-trip.
+ */
+async function commitToURL() {
+  const s = compactState();
+  const hash = b64uEncode(JSON.stringify(s));
+  const url = location.origin + location.pathname + "#s=" + hash;
+  history.replaceState(null, "", "#s=" + hash);
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Layout committed to URL — link copied to clipboard", "success");
+  } catch (e) {
+    toast("Layout committed to URL (clipboard copy blocked — URL is in the address bar)", "success");
   }
 }
 
 // =====================================================================
 // WIRING
 // =====================================================================
-$("#btn-load").onclick = () => {
-  $("#url-input").value = state.csvUrl || "";
-  $("#sync-input").value = state.syncUrl || "";
-  $("#load-modal").classList.add("open");
-};
-$("#btn-load-cancel").onclick = () => $("#load-modal").classList.remove("open");
-$("#btn-load-go").onclick = async () => {
-  const url = $("#url-input").value.trim();
-  const syncUrl = $("#sync-input").value.trim();
-  if (!url && !syncUrl) { toast("Enter at least one URL", "error"); return; }
-  state.syncUrl = syncUrl || null;
-  $("#load-modal").classList.remove("open");
-  if (url) await loadFromUrl(url);
-  if (syncUrl) await loadLayoutFromSync(syncUrl);
-  saveLocal();
-  renderAll();
-};
-$("#btn-load-paste").onclick = async () => {
-  const text = $("#paste-input").value;
-  const syncUrl = $("#sync-input").value.trim();
-  if (!text.trim()) { toast("Paste CSV content first", "error"); return; }
-  try {
-    applyCsvText(text);
-    $("#paste-input").value = "";
-    if (syncUrl) {
-      state.syncUrl = syncUrl;
-      await loadLayoutFromSync(syncUrl);
-    }
-    saveLocal();
-    renderAll();
-    $("#load-modal").classList.remove("open");
-  } catch (e) {
-    console.error(e);
-    toast(`Parse failed: ${e.message}`, "error");
-  }
-};
-$("#btn-commit").onclick = commitToSync;
+$("#btn-commit").onclick = commitToURL;
+$("#btn-check-updates").onclick = checkForUpdates;
+$("#btn-update-cancel").onclick = () => $("#update-modal").classList.remove("open");
 $("#btn-copy-script").onclick = async () => {
   const code = document.getElementById("apps-script-code").textContent;
   try {
@@ -1509,6 +1635,51 @@ $("#file-input").addEventListener("change", async e => {
   e.target.value = "";
 });
 
+// Hidden file input used by "Check for Updates" when no CSV URL is stored.
+const updateFileInput = document.createElement("input");
+updateFileInput.type = "file";
+updateFileInput.accept = ".csv,.tsv,.txt";
+updateFileInput.style.display = "none";
+document.body.appendChild(updateFileInput);
+updateFileInput.addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  e.target.value = "";
+  runDiffFromText(text);
+});
+
+function runDiffFromText(text) {
+  let parsed;
+  try {
+    const rows = parseCSV(text);
+    parsed = parseSheetToItems(rows);
+  } catch (e) {
+    toast(`Parse failed: ${e.message}`, "error");
+    return;
+  }
+  if (currentItems().length === 0 && allItemsCount() === 0) {
+    // No items yet — just load the file instead of diffing against nothing.
+    applyCsvText(text);
+    toast(`Loaded ${parsed.items.length} items`, "success");
+    return;
+  }
+  const diff = computeItemDiff(state, parsed.items);
+  if (!diffHasChanges(diff)) {
+    toast("Already up to date — no changes in the new file", "success");
+    return;
+  }
+  showUpdateModal(diff, parsed.items);
+}
+
+function allItemsCount() {
+  let n = 0;
+  for (const loc of state.locationNames) {
+    n += (state.locations[loc]?.items?.length || 0);
+  }
+  return n;
+}
+
 $("#btn-auto-finish").onclick = autoPackFinish;
 $("#btn-auto-all").onclick = () => {
   if (confirm("This will clear your current layout and re-pack everything from scratch. Continue?")) {
@@ -1522,8 +1693,6 @@ $("#btn-reset").onclick = () => {
   saveLocal(); renderAll();
   toast("All items unplaced");
 };
-
-$("#btn-share").onclick = shareNow;
 
 $("#btn-settings").onclick = () => {
   $("#setting-len").value = state.trailer.length;
